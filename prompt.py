@@ -67,12 +67,31 @@ workflow.add_edge(START, "model")
 
 app = workflow.compile(checkpointer=memory)
 
+def format_context(documents):
+    """Format documents with metadata for better context"""
+    formatted = []
+    for doc in documents:
+        metadata = doc.metadata
+        content = doc.page_content
+        
+        # Add section context from metadata
+        section_info = ""
+        if "Header2" in metadata:
+            section_info = f"[Seção: {metadata['Header2']}]"
+        if "Header3" in metadata:
+            section_info += f" [Subseção: {metadata['Header3']}]"
+        
+        formatted.append(f"{section_info}\n{content}\n")
+    
+    return "\n---\n".join(formatted)
+
 def rag(user_query: str, session_id: str = "default") -> str:
-    context = db.similarity_search(user_query, k=3)
+    context = db.similarity_search(user_query, k=5)
+    formatted_context = format_context(context)
     config = {"configurable": {"thread_id": session_id}}
     
     response = app.invoke(
-        {"contexto": context, "pergunta": user_query},
+        {"contexto": formatted_context, "pergunta": user_query},
         config
     )
     
@@ -88,12 +107,13 @@ def rag(user_query: str, session_id: str = "default") -> str:
     return ""
 
 def rag_stream(user_query: str, session_id: str = "default"):
-    context = db.similarity_search(user_query, k=3)
+    context = db.similarity_search(user_query, k=5)
+    formatted_context = format_context(context)
     config = {"configurable": {"thread_id": session_id}}
     
     # Stream the response
     for event in app.stream(
-        {"contexto": context, "pergunta": user_query},
+        {"contexto": formatted_context, "pergunta": user_query},
         config
     ):
         for node_name, node_output in event.items():

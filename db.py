@@ -1,5 +1,5 @@
 from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
@@ -20,27 +20,16 @@ with open("assets/profile.md", "r", encoding="utf-8") as f:
     texto = f.read()
 logger.info(f"Loaded profile.md: {len(texto)} characters")
 
-# Create documents
-logger.info("Creating documents...")
-documents = [
-    Document(
-        page_content=texto,
-        metadata={
-            "author": "Tiago Mendes", 
-            "source": "https://www.linkedin.com/in/tmendesilva/"
-        }
-    )
-]
-logger.info(f"Created {len(documents)} document(s)")
-
-# Split text into chunks
-logger.info("Splitting text into chunks...")
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=250,
-    length_function=len,
+# Split by markdown headers
+logger.info("Splitting by markdown headers...")
+markdown_splitter = MarkdownHeaderTextSplitter(
+    headers_to_split_on=[
+        ("#", "Header1"),
+        ("##", "Header2"),
+        ("###", "Header3"),
+    ]
 )
-chunks = text_splitter.split_documents(documents)
+chunks = markdown_splitter.split_text(texto)
 logger.info(f"Split into {len(chunks)} chunks")
 
 # Create embeddings

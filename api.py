@@ -27,8 +27,6 @@ api_key_header = APIKeyHeader(name='Authorization', auto_error=True)
 
 # Dependency function to validate the token
 async def validate_token(token: str = Depends(api_key_header)):
-    print(f"Token: {token}")
-    print(f"API_KEY: {os.getenv('API_KEY')}")
     if token != os.getenv('API_KEY'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
