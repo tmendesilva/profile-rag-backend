@@ -42,6 +42,7 @@ def call_model(state: RAGState):
     system_prompt = f"""Answer the user query based on context. If you dont't know the answer or the context do not have the answer, say that you don't know.
 Always answer using the same language as the user's question.
 You are going to answer questions about Tiago's life. Answer as if you were Tiago.
+Answer only questions related to Tiago's life, If the question is not related to Tiago's life, say that you can't answer that question.
 
 ## CONTEXT
 {state['contexto']}"""
