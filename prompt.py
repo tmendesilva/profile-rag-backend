@@ -1,15 +1,14 @@
+import os
+import sys
+
+from dotenv import load_dotenv
 from langchain_chroma import Chroma
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import START, StateGraph, MessagesState
+from langgraph.graph import START, StateGraph
 from typing_extensions import TypedDict
-from dotenv import load_dotenv
-import sys
-import os
 
 # Load environment variables
 load_dotenv()
@@ -47,8 +46,13 @@ Answer only questions related to Tiago's life, If the question is not related to
 ## CONTEXT
 {state['contexto']}"""
     
-    # Create messages with system prompt and the user's question
-    messages = [SystemMessage(content=system_prompt), HumanMessage(content=state["pergunta"])]
+    # Create messages with system prompt, conversation history, and the user's question
+    messages = [SystemMessage(content=system_prompt)]
+    # Add existing conversation history
+    if state.get("messages"):
+        messages.extend(state["messages"])
+    # Add the current user question
+    messages.append(HumanMessage(content=state["pergunta"]))
     
     # Call the LLM
     llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", google_api_key=GEMINI_API_KEY)
@@ -60,7 +64,7 @@ Answer only questions related to Tiago's life, If the question is not related to
         content = content[0].get('text', str(content)) if content else str(content)
     
     # Return the new message to append to history
-    return {"messages": [HumanMessage(content=state["pergunta"]), AIMessage(content=content)]}
+    return {"messages": [AIMessage(content=content)]}
 
 workflow = StateGraph(RAGState)
 workflow.add_node("model", call_model)
@@ -90,9 +94,13 @@ def rag(user_query: str, session_id: str = "default") -> str:
     context = db.similarity_search(user_query, k=5)
     formatted_context = format_context(context)
     config = {"configurable": {"thread_id": session_id}}
-    
+
+    # Get current state to include existing messages
+    current_state = app.get_state(config)
+    existing_messages = current_state.values.get("messages", []) if current_state else []
+
     response = app.invoke(
-        {"contexto": formatted_context, "pergunta": user_query},
+        {"contexto": formatted_context, "pergunta": user_query, "messages": existing_messages},
         config
     )
     
@@ -112,9 +120,13 @@ def rag_stream(user_query: str, session_id: str = "default"):
     formatted_context = format_context(context)
     config = {"configurable": {"thread_id": session_id}}
     
+    # Get current state to include existing messages
+    current_state = app.get_state(config)
+    existing_messages = current_state.values.get("messages", []) if current_state else []
+    
     # Stream the response
     for event in app.stream(
-        {"contexto": formatted_context, "pergunta": user_query},
+        {"contexto": formatted_context, "pergunta": user_query, "messages": existing_messages},
         config
     ):
         for node_name, node_output in event.items():
